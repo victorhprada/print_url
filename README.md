@@ -39,11 +39,21 @@ python screenshot_pdf.py \
 ### Ler URLs de arquivo
 Você pode informar URLs via arquivo de texto (uma por linha) ou CSV.
 
-- TXT (uma URL por linha, linhas vazias e iniciadas com `#` são ignoradas):
+#### Arquivo TXT (recomendado)
+1. Crie um arquivo `urls.txt` com uma URL por linha:
+```txt
+# Exemplo de urls.txt
+https://exemplo.com/pagina1
+https://exemplo.com/pagina2
+https://www.google.com
+```
+
+2. Execute o comando:
 ```bash
 python screenshot_pdf.py --urls-file urls.txt --out ./capturas --name lote_txt
 ```
 
+#### Arquivo CSV
 - CSV (por padrão usa a coluna `url` ou a primeira coluna se `url` não existir):
 ```bash
 python screenshot_pdf.py --urls-file urls.csv --out ./capturas --name lote_csv
@@ -57,6 +67,12 @@ python screenshot_pdf.py \
   --delimiter ";" \
   --out ./capturas \
   --name lote_csv_custom
+```
+
+#### Arquivo de exemplo incluído
+O projeto inclui `urls_exemplo.txt` para você testar:
+```bash
+python screenshot_pdf.py --urls-file urls_exemplo.txt --out ./capturas --name teste_exemplo
 ```
 
 Opções úteis:
