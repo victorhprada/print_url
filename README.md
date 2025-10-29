@@ -121,6 +121,3 @@ python screenshot_pdf.py --urls-file urls.txt --out ./saidas --name lote_txt
 ```bash
 python screenshot_pdf.py --urls-file urls.csv --csv-col link --delimiter ";" --out ./saidas --name lote_csv
 ```
-
-## Dúvidas
-Se precisar adaptar (ex.: autenticação, clique antes de exportar, remover cabeçalhos do PDF, etc.), abra um issue ou peça aqui que ajusto o script.
