@@ -7,25 +7,40 @@ Otimizado para Render Free Tier (Web Service apenas, sem workers).
 import io
 import sys
 import zipfile
+import traceback
+import logging
 from pathlib import Path
 from typing import Optional
 from datetime import datetime
 
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 import tempfile
 import shutil
+
+# Configurar logging detalhado
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 # Adiciona o diretório atual ao path para importar screenshot_pdf
 sys.path.insert(0, str(Path(__file__).parent))
 
 # Importa funções do script principal
-from screenshot_pdf import (
-    read_urls_from_file,
-    capture_many,
-    _parse_headers,
-)
+try:
+    from screenshot_pdf import (
+        read_urls_from_file,
+        capture_many,
+        _parse_headers,
+    )
+    logger.info("✅ Módulo screenshot_pdf importado com sucesso")
+except Exception as e:
+    logger.error(f"❌ Erro ao importar screenshot_pdf: {e}")
+    logger.error(traceback.format_exc())
+    raise
 
 app = FastAPI(
     title="Screenshot & PDF Generator API",
@@ -80,42 +95,64 @@ async def process_batch(
     Returns:
         ZIP file com screenshots e PDFs organizados por tipo
     """
-    # Parse URLs
-    url_list = [line.strip() for line in urls.split("\n") if line.strip()]
+    logger.info(f"📥 Recebido request para lote {batch_number}")
+    logger.debug(f"Parâmetros: viewport={viewport_width}x{viewport_height}, pdf={pdf_format}, landscape={landscape}")
     
-    # Validação: máximo 20 URLs por lote
-    if len(url_list) > 20:
-        raise HTTPException(
-            status_code=400,
-            detail="Máximo 20 URLs por lote. Divida em lotes menores.",
+    try:
+        # Parse URLs
+        url_list = [line.strip() for line in urls.split("\n") if line.strip()]
+        logger.info(f"📊 Total de URLs recebidas: {len(url_list)}")
+        
+        # Validação: máximo 20 URLs por lote
+        if len(url_list) > 20:
+            logger.warning(f"⚠️ Muitas URLs: {len(url_list)} (máximo 20)")
+            raise HTTPException(
+                status_code=400,
+                detail="Máximo 20 URLs por lote. Divida em lotes menores.",
+            )
+        
+        if not url_list:
+            logger.error("❌ Nenhuma URL fornecida")
+            raise HTTPException(status_code=400, detail="Nenhuma URL fornecida")
+        
+        # Cria diretório temporário
+        temp_dir = Path(tempfile.mkdtemp())
+        output_dir = temp_dir / "output"
+        output_dir.mkdir()
+        logger.info(f"📁 Diretório temporário criado: {temp_dir}")
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Erro na validação inicial: {e}")
+        logger.error(traceback.format_exc())
+        return JSONResponse(
+            status_code=500,
+            content={"error": str(e), "traceback": traceback.format_exc()}
         )
-    
-    if not url_list:
-        raise HTTPException(status_code=400, detail="Nenhuma URL fornecida")
-    
-    # Cria diretório temporário
-    temp_dir = Path(tempfile.mkdtemp())
-    output_dir = temp_dir / "output"
-    output_dir.mkdir()
     
     try:
         # Converte URLs para formato esperado (url, tipo)
         # Se vier do formato "url|tipo", faz parse
+        logger.info("🔄 Convertendo URLs para formato (url, tipo)")
         urls_with_type = []
-        for url in url_list:
+        for i, url in enumerate(url_list):
             if "|" in url:
                 parts = url.split("|", 1)
                 url_clean = parts[0].strip()
                 tipo = parts[1].strip().lower() if len(parts) > 1 else None
                 if tipo and tipo not in ["plataforma", "aplicativo"]:
+                    logger.warning(f"⚠️ Tipo inválido '{tipo}' para URL {url_clean}")
                     tipo = None
             else:
                 url_clean = url
                 tipo = None
             urls_with_type.append((url_clean, tipo))
+            logger.debug(f"URL {i+1}: {url_clean} (tipo: {tipo})")
         
         # Processa URLs
         base_prefix = f"lote{batch_number:02d}"
+        logger.info(f"🚀 Iniciando processamento de {len(urls_with_type)} URLs...")
         
         results = capture_many(
             urls=urls_with_type,
@@ -137,22 +174,31 @@ async def process_batch(
             post_wait_ms=0,
         )
         
+        logger.info(f"✅ Processamento concluído: {len(results)} URLs processadas")
+        
         # Cria ZIP em memória
+        logger.info("📦 Criando arquivo ZIP...")
         zip_buffer = io.BytesIO()
         with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zipf:
+            file_count = 0
             for file_path in output_dir.rglob("*"):
                 if file_path.is_file():
                     arcname = file_path.relative_to(output_dir)
                     zipf.write(file_path, arcname)
+                    file_count += 1
+                    logger.debug(f"Adicionado ao ZIP: {arcname}")
         
+        logger.info(f"✅ ZIP criado com {file_count} arquivos")
         zip_buffer.seek(0)
         
         # Limpa diretório temporário
         shutil.rmtree(temp_dir, ignore_errors=True)
+        logger.info("🧹 Diretório temporário removido")
         
         # Retorna ZIP
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"lote{batch_number:02d}_{timestamp}.zip"
+        logger.info(f"📤 Enviando ZIP: {filename}")
         
         return StreamingResponse(
             zip_buffer,
@@ -164,10 +210,23 @@ async def process_batch(
             },
         )
     
+    except HTTPException:
+        raise
     except Exception as e:
         # Limpa em caso de erro
+        logger.error(f"❌ ERRO FATAL no processamento: {e}")
+        logger.error(f"Traceback completo:\n{traceback.format_exc()}")
         shutil.rmtree(temp_dir, ignore_errors=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        
+        # Retorna erro detalhado
+        return JSONResponse(
+            status_code=500,
+            content={
+                "error": str(e),
+                "type": type(e).__name__,
+                "traceback": traceback.format_exc()
+            }
+        )
 
 
 @app.post("/api/process-csv-preview")
