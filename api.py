@@ -70,7 +70,7 @@ async def root():
 
 
 @app.post("/api/process-batch")
-async def process_batch(
+def process_batch(
     urls: str = Form(...),  # URLs separadas por newline
     batch_number: int = Form(0),
     viewport_width: int = Form(1280),
@@ -230,7 +230,7 @@ async def process_batch(
 
 
 @app.post("/api/process-csv-preview")
-async def process_csv_preview(
+def process_csv_preview(
     file: UploadFile = File(...),
     delimiter: str = Form(";"),
 ):
@@ -239,7 +239,7 @@ async def process_csv_preview(
     Frontend usa isso para mostrar preview antes de processar.
     """
     try:
-        content = await file.read()
+        content = file.file.read()
         temp_csv = Path(tempfile.mktemp(suffix=".csv"))
         temp_csv.write_bytes(content)
         
