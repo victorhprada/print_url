@@ -65,3 +65,8 @@ Mapeamento*.csv
 
 # Logs
 *.log
+
+# Backend temporary files
+backend/.env
+/tmp/uploads/
+/tmp/outputs/
