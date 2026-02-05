@@ -17,6 +17,9 @@ from fastapi.middleware.cors import CORSMiddleware
 import tempfile
 import shutil
 
+# Adiciona o diretório atual ao path para importar screenshot_pdf
+sys.path.insert(0, str(Path(__file__).parent))
+
 # Importa funções do script principal
 from screenshot_pdf import (
     read_urls_from_file,
