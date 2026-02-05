@@ -1,20 +1,13 @@
-# Configuração simplificada do Render para processamento em lotes
-# Apenas Web Service (sem workers, sem Redis)
+# Configuração do Render usando Docker para garantir instalação correta do Chromium
+# Usa imagem oficial do Playwright com Chromium pré-instalado
 # Compatível com FREE TIER
 
 services:
   # API HTTP - Processa lotes de até 20 URLs
   - type: web
     name: screenshot-batch-api
-    runtime: python
+    runtime: docker
     plan: free
-    buildCommand: |
-      pip install -r requirements.txt
-      pip install -r requirements-api.txt
-      python -m playwright install chromium
-    startCommand: uvicorn api:app --host 0.0.0.0 --port $PORT
-    envVars:
-      - key: PYTHON_VERSION
-        value: 3.12.0
+    dockerfilePath: ./Dockerfile
     healthCheckPath: /health
     autoDeploy: true

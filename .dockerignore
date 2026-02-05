@@ -1,0 +1,47 @@
+# Ignorar arquivos desnecessários no build Docker
+
+# Virtual environment (será criado dentro do container)
+.venv/
+venv/
+env/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Git
+.git/
+.gitignore
+
+# Dados sensíveis
+MapeamentoBase.csv
+Mapeamento*.csv
+*Base.csv
+
+# Outputs
+capturas/
+*.png
+*.pdf
+*.zip
+*.7z
+
+# Temporários
+*.log
+.DS_Store
+Thumbs.db
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+
+# Documentação (não precisa no container)
+*.md
+!README.md
+
+# Arquivos de exemplo (não precisa no container)
+urls_exemplo.txt
+urls_com_tipo.txt
+urls_com_tipo.csv
