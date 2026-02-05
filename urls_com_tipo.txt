@@ -1,0 +1,15 @@
+# Exemplo de arquivo TXT com tipos (plataforma ou aplicativo)
+# Formato: URL|tipo
+# Os arquivos serão salvos em subpastas plataforma/ e aplicativo/
+
+# Exemplos de plataformas web
+https://www.google.com|plataforma
+https://www.python.org|plataforma
+https://github.com|plataforma
+
+# Exemplos de aplicativos
+https://web.whatsapp.com|aplicativo
+https://web.telegram.org|aplicativo
+
+# URLs sem tipo especificado serão salvas no diretório raiz
+https://www.wikipedia.org

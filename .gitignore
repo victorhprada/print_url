@@ -52,5 +52,16 @@ urls_exemplo.txt
 urls.txt
 urls.csv
 
+# Dados sensíveis/internos da empresa
+MapeamentoBase.csv
+Mapeamento*.csv
+*Base.csv
+
+# Arquivos comprimidos (podem conter dados sensíveis)
+*.7z
+*.zip
+*.rar
+*.tar.gz
+
 # Logs
 *.log

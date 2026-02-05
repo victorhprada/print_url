@@ -53,8 +53,42 @@ https://www.google.com
 python screenshot_pdf.py --urls-file urls.txt --out ./capturas --name lote_txt
 ```
 
+#### Arquivo TXT com tipos (plataforma/aplicativo)
+Organize automaticamente os prints em subpastas usando o formato `URL|tipo`:
+```txt
+# Exemplo de urls_com_tipo.txt
+https://exemplo.com/dashboard|plataforma
+https://exemplo.com/mobile-app|aplicativo
+https://www.google.com|plataforma
+https://app.exemplo.com|aplicativo
+```
+
+Resultado:
+```
+./capturas/
+  ├── plataforma/
+  │   ├── lote_exemplo_com_dashboard.png
+  │   ├── lote_exemplo_com_dashboard.pdf
+  │   └── lote_www_google_com.png
+  └── aplicativo/
+      ├── lote_exemplo_com_mobile-app.png
+      └── lote_app_exemplo_com.png
+```
+
 #### Arquivo CSV
 - CSV (por padrão usa a coluna `url` ou a primeira coluna se `url` não existir):
+```bash
+python screenshot_pdf.py --urls-file urls.csv --out ./capturas --name lote_csv
+```
+
+- **CSV com coluna `tipo` para organizar em subpastas** (plataforma/aplicativo):
+```csv
+url,tipo
+https://exemplo.com/dashboard,plataforma
+https://exemplo.com/mobile,aplicativo
+https://www.google.com,plataforma
+```
+
 ```bash
 python screenshot_pdf.py --urls-file urls.csv --out ./capturas --name lote_csv
 ```
@@ -100,6 +134,12 @@ python screenshot_pdf.py "https://exemplo.com" \
 Nomeação dos arquivos:
 - Para múltiplas URLs, o nome segue `PREFIXO_HOST_PATH.(png|pdf)` quando possível, limitado a 80 caracteres no slug. Caracteres inválidos são substituídos por `-`.
 
+Organização por tipo:
+- Quando especificado `tipo` como `plataforma` ou `aplicativo` (via CSV ou TXT com `|`), os arquivos são salvos em subdiretórios:
+  - `./output/plataforma/arquivo.png`
+  - `./output/aplicativo/arquivo.pdf`
+- URLs sem tipo especificado são salvas diretamente no diretório de saída
+
 Saída esperada:
 - Screenshot: `NOME.png`
 - PDF: `NOME.pdf`
@@ -116,6 +156,14 @@ python screenshot_pdf.py "https://www.python.org" "https://pypi.org" --out ./sai
 - Ler de TXT:
 ```bash
 python screenshot_pdf.py --urls-file urls.txt --out ./saidas --name lote_txt
+```
+- **Ler de TXT com tipos (organiza em subpastas plataforma/aplicativo)**:
+```bash
+python screenshot_pdf.py --urls-file urls_com_tipo.txt --out ./saidas --name lote_organizado
+```
+- **Ler de CSV com coluna tipo**:
+```bash
+python screenshot_pdf.py --urls-file urls_com_tipo.csv --out ./saidas --name capturas
 ```
 - Ler de CSV com coluna `link` e `;` como separador:
 ```bash

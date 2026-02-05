@@ -199,26 +199,41 @@ def filename_for_url(base_prefix: str, url: str, index: int) -> str:
 	return sanitize_for_filename(f"{base_prefix}_{slug}")
 
 
-def read_urls_from_file(file_path: Path, csv_col: Optional[str], delimiter: str) -> list[str]:
+def read_urls_from_file(file_path: Path, csv_col: Optional[str], delimiter: str) -> list[tuple[str, Optional[str]]]:
+	"""Retorna lista de tuplas (url, tipo) onde tipo pode ser 'plataforma', 'aplicativo' ou None"""
 	if not file_path.exists():
 		raise FileNotFoundError(f"Arquivo não encontrado: {file_path}")
 	lower = file_path.suffix.lower()
 	if lower == ".csv":
 		return _read_urls_from_csv(file_path, csv_col, delimiter)
 	# Trata como txt: uma URL por linha (ignora vazias e comentários '#')
-	urls: list[str] = []
+	# Suporta formato: URL ou URL|tipo
+	urls: list[tuple[str, Optional[str]]] = []
 	for line in file_path.read_text(encoding="utf-8").splitlines():
 		line = line.strip()
 		if not line or line.startswith("#"):
 			continue
-		urls.append(line)
+		# Verifica se tem separador | para tipo
+		if "|" in line:
+			parts = line.split("|", 1)
+			url = parts[0].strip()
+			tipo = parts[1].strip().lower() if len(parts) > 1 else None
+			# Valida tipo
+			if tipo and tipo not in ["plataforma", "aplicativo"]:
+				print(f"Aviso: tipo '{tipo}' inválido para URL {url}. Usando None.", file=sys.stderr)
+				tipo = None
+		else:
+			url = line
+			tipo = None
+		urls.append((url, tipo))
 	return urls
 
 
-def _read_urls_from_csv(file_path: Path, csv_col: Optional[str], delimiter: str) -> list[str]:
+def _read_urls_from_csv(file_path: Path, csv_col: Optional[str], delimiter: str) -> list[tuple[str, Optional[str]]]:
+	"""Lê URLs do CSV e tenta extrair coluna 'tipo' se existir"""
 	import csv
 
-	urls: list[str] = []
+	urls: list[tuple[str, Optional[str]]] = []
 	with file_path.open("r", encoding="utf-8", newline="") as f:
 		# Tenta DictReader primeiro (com cabeçalho)
 		reader = csv.DictReader(f, delimiter=delimiter)
@@ -239,11 +254,23 @@ def _read_urls_from_csv(file_path: Path, csv_col: Optional[str], delimiter: str)
 				name_col = next(n for n in fieldnames if n.lower() == "url")
 			else:
 				index_col = 0
+		
+		# Verifica se existe coluna 'tipo'
+		tipo_col = None
+		if use_dict and any(n.lower() == "tipo" for n in fieldnames):
+			tipo_col = next(n for n in fieldnames if n.lower() == "tipo")
+		
 		if use_dict and name_col is not None:
 			for row in reader:
 				val = (row.get(name_col) or "").strip()
 				if val:
-					urls.append(val)
+					# Tenta pegar o tipo se existir
+					tipo = None
+					if tipo_col:
+						tipo_raw = (row.get(tipo_col) or "").strip().lower()
+						if tipo_raw in ["plataforma", "aplicativo"]:
+							tipo = tipo_raw
+					urls.append((val, tipo))
 			return urls
 		# Caso sem cabeçalho ou preferiu índice
 		f.seek(0)
@@ -256,18 +283,22 @@ def _read_urls_from_csv(file_path: Path, csv_col: Optional[str], delimiter: str)
 			except IndexError:
 				continue
 			if val and val.lower() != "url":
-				urls.append(val)
+				# Sem dict reader, não temos tipo
+				urls.append((val, None))
 	return urls
 
 
-def gather_urls(positional_urls: list[str], urls_file: Optional[Path], csv_col: Optional[str], delimiter: str) -> list[str]:
-	file_urls: list[str] = []
+def gather_urls(positional_urls: list[str], urls_file: Optional[Path], csv_col: Optional[str], delimiter: str) -> list[tuple[str, Optional[str]]]:
+	"""Retorna lista de tuplas (url, tipo) combinando arquivo e argumentos posicionais"""
+	file_urls: list[tuple[str, Optional[str]]] = []
 	if urls_file is not None:
 		file_urls = read_urls_from_file(urls_file, csv_col, delimiter)
+	# URLs posicionais não têm tipo
+	positional_tuples = [(u, None) for u in positional_urls]
 	# Combina, preservando ordem (arquivo primeiro, depois posicionais)
-	combined = [*file_urls, *positional_urls]
+	combined = [*file_urls, *positional_tuples]
 	# Remove vazios e espaços
-	combined = [u.strip() for u in combined if u and u.strip()]
+	combined = [(u.strip(), t) for u, t in combined if u and u.strip()]
 	if not combined:
 		raise ValueError("Nenhuma URL fornecida. Informe URLs posicionais ou --urls-file.")
 	return combined
@@ -296,7 +327,8 @@ def _locale_from_accept_language(accept_language: Optional[str]) -> Optional[str
 	return first or None
 
 
-def capture_many(urls: list[str], output_dir: Path, base_prefix: str, viewport_width: int, viewport_height: int, wait_until: str, timeout_ms: int, pdf_format: str, landscape: bool, scale: float, user_agent: Optional[str], accept_language: Optional[str], timezone_id: Optional[str], extra_headers: dict[str, str], headless: bool, proxy: Optional[str], post_wait_ms: int) -> list[tuple[str, Path, Path]]:
+def capture_many(urls: list[tuple[str, Optional[str]]], output_dir: Path, base_prefix: str, viewport_width: int, viewport_height: int, wait_until: str, timeout_ms: int, pdf_format: str, landscape: bool, scale: float, user_agent: Optional[str], accept_language: Optional[str], timezone_id: Optional[str], extra_headers: dict[str, str], headless: bool, proxy: Optional[str], post_wait_ms: int) -> list[tuple[str, Path, Path]]:
+	"""Captura screenshots e PDFs de múltiplas URLs, organizando por tipo (plataforma/aplicativo) se especificado"""
 	output_dir = ensure_output_dir(output_dir)
 	results: list[tuple[str, Path, Path]] = []
 	with sync_playwright() as p:
@@ -325,10 +357,16 @@ def capture_many(urls: list[str], output_dir: Path, base_prefix: str, viewport_w
 			Object.defineProperty(navigator, 'plugins', { get: () => [1,2,3,4,5] });
 			"""
 		)
-		for i, url in enumerate(urls):
+		for i, (url, tipo) in enumerate(urls):
+			# Determina o diretório de saída baseado no tipo
+			if tipo in ["plataforma", "aplicativo"]:
+				target_dir = ensure_output_dir(output_dir / tipo)
+			else:
+				target_dir = output_dir
+			
 			base_name = filename_for_url(base_prefix, url, i)
-			screenshot_path = output_dir / f"{base_name}.png"
-			pdf_path = output_dir / f"{base_name}.pdf"
+			screenshot_path = target_dir / f"{base_name}.png"
+			pdf_path = target_dir / f"{base_name}.pdf"
 			response = page.goto(url, wait_until=wait_until, timeout=timeout_ms)
 			if post_wait_ms > 0:
 				page.wait_for_timeout(post_wait_ms)
