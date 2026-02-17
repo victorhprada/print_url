@@ -48,6 +48,15 @@ app = FastAPI(
     version="2.0.0",
 )
 
+@app.get("/")
+def health_check():
+    return {
+        "status": "ok",
+        "service": "Screenshot & PDF Generator API (Batch Mode)",
+        "version": "2.0.0",
+        "mode": "batch_processing",
+    }
+
 # CORS para permitir requisições do frontend Lovable
 app.add_middleware(
     CORSMiddleware,
