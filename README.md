@@ -19,7 +19,7 @@ Os documentos são automaticamente organizados em pastas `plataforma/` e `aplica
 
 ### 🌐 Interface Web (Recomendado)
 
-**Acesse:** [https://seu-app.lovable.app](https://seu-app.lovable.app)
+**Acesse:** https://iadocument.lovable.app/
 
 Ideal para usuários não-técnicos. Interface moderna com:
 - ✅ Upload simples via drag-and-drop
